@@ -1,0 +1,5 @@
+{
+  "name": "ha-control-center-public",
+  "interface": {"displayName": "HA Control Center"},
+  "plugins": [{"name": "kosek-control-center", "source": {"source": "local", "path": "."}, "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}, "category": "Productivity"}]
+}

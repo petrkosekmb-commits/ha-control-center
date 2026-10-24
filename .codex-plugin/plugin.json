@@ -1,0 +1,26 @@
+{
+  "name": "kosek-control-center",
+  "version": "0.2.0",
+  "description": "Bezpecne lokalni centrum pro Home Assistant, FVE, vozidla, Traccar a overene exporty.",
+  "author": {
+    "name": "Petr Kosek"
+  },
+  "license": "MIT",
+  "keywords": ["home-assistant", "energy", "fve", "tesla", "traccar", "automation"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "HA Control Center",
+    "shortDescription": "Bezpecna sprava Home Assistantu a techniky.",
+    "longDescription": "Lokalni ridici centrum pro vice instalaci Home Assistantu. Cte entity, diagnostiku a Lovelace dashboardy, shrnuje FVE, Teslu a Traccar a provadi konkretne zadane zmeny bez dalsiho potvrzovani, se zalohou a zpetnym overenim.",
+    "developerName": "Petr Kosek",
+    "category": "Productivity",
+    "capabilities": ["Read", "Diagnostics", "Backup", "Write"],
+    "defaultPrompt": [
+      "Zkontroluj stav meho Home Assistantu.",
+      "Najdi problemove entity FVE.",
+      "Nacti dashboard a navrhni nejmensi opravu."
+    ],
+    "brandColor": "#0B7285"
+  },
+  "mcpServers": "./.mcp.json"
+}

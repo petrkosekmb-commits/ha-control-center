@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "kosek-control-center": {
+      "title": "HA Control Center",
+      "description": "Bezpečné lokální propojení s Home Assistantem, FVE, Teslou a Traccarem.",
+      "command": "powershell.exe",
+      "args": ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/start-server.ps1"],
+      "cwd": ".",
+      "tool_timeout_sec": 120
+    }
+  }
+}

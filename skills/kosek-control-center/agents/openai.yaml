@@ -1,0 +1,11 @@
+interface:
+  display_name: "HA Control Center"
+  short_description: "Bezpecna sprava Home Assistantu a techniky"
+  default_prompt: "Pouzij $kosek-control-center a zkontroluj stav meho Home Assistantu."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "kosek-control-center"
+      description: "Lokalni bezpecny konektor pro Home Assistant."
+policy:
+  allow_implicit_invocation: true
