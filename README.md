@@ -51,3 +51,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-health.p
 ```
 
 Testy používají syntetická data. Ověřují rotaci nastavení, chyby přístupu, expiraci, TLS, první WebSocket rámec a bezpečnost zápisů. Úspěch testů nenahrazuje živé ověření uživatelovy instance.
+
+## Tailscale 0.3.0
+
+Automaticke pripojeni podle domu / Automatic per-home connection: [TAILSCALE.md](TAILSCALE.md). Prirazeni uctu a tokeny zustavaji pouze mistne. Account mappings and tokens remain local.

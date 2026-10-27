@@ -14,6 +14,8 @@ import ssl
 import struct
 import subprocess
 import sys
+import time
+from contextlib import contextmanager
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,7 +25,7 @@ from typing import Any
 
 
 PROTOCOL_VERSION = "2025-03-26"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 PENDING: dict[str, dict[str, Any]] = {}
 MODULE_KEYWORDS = {
     "fve": ["fve", "solar", "pv", "photovolta", "inverter", "sunways", "solarmax", "battery", "bater"],
@@ -94,6 +96,116 @@ def ssl_context(item: dict[str, Any]) -> ssl.SSLContext:
     if item.get("verifySsl", True):
         return ssl.create_default_context()
     return ssl._create_unverified_context()
+
+
+def tailscale_cli(*args: str) -> Any:
+    executable = Path(os.environ.get('ProgramFiles', r'C:\Program Files')) / 'Tailscale' / 'tailscale.exe'
+    try:
+        result = subprocess.run([str(executable), *args], capture_output=True, timeout=25,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        if result.returncode:
+            raise ValueError('command failed')
+        return json.loads(result.stdout) if '--json' in args else None
+    except Exception:
+        raise RuntimeError('Tailscale nelze ovladat. Overte instalaci, opravneni a mistni prihlaseni. Zadny HA zapis nebyl zahajen.') from None
+
+
+def endpoint_reachable(item: dict[str, Any]) -> bool:
+    url = urllib.parse.urlparse(item['baseUrl'])
+    try:
+        with socket.create_connection((url.hostname, url.port or (443 if url.scheme == 'https' else 80)), timeout=3):
+            return True
+    except OSError:
+        return False
+
+
+@contextmanager
+def network_lock():
+    # One lock across MCP processes and the scheduled health check, held through HA I/O.
+    import msvcrt
+    path = CONFIG_PATH.with_name('tailscale-operation.lock')
+    with path.open('a+b') as lock:
+        lock.seek(0, 2)
+        if lock.tell() == 0:
+            lock.write(b'0'); lock.flush()
+        deadline = time.monotonic() + 45
+        while True:
+            try:
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('Jina operace HA Control Center pouziva sit. Zkuste pozdeji.') from None
+                time.sleep(0.1)
+        try:
+            yield
+        finally:
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+def ensure_network(item: dict[str, Any]) -> dict[str, Any]:
+    route = item.get('tailscale') or {}
+    if not route.get('enabled'):
+        return {'action': 'not_configured'}
+    if endpoint_reachable(item):
+        return {'action': 'kept_current_connection'}
+    profile_id = route.get('profileId')
+    account = route.get('account')
+    profiles = tailscale_cli('switch', '--list', '--json')
+    matches = [p for p in profiles if p.get('id') == profile_id and p.get('account') == account]
+    if len(matches) != 1:
+        raise RuntimeError('Prirazeny profil Tailscale chybi nebo ma jiny ucet. Prihlaste spravny ucet mistne; profil se nehada.')
+    previous = next((p['id'] for p in profiles if p.get('selected')), None)
+    changed = previous != profile_id
+    if changed and previous is None:
+        raise RuntimeError('Nelze urcit aktivni profil Tailscale; automaticke prepnuti zastaveno.')
+    try:
+        if changed:
+            tailscale_cli('switch', profile_id)
+        state = tailscale_cli('status', '--json')
+        if state.get('BackendState') == 'Stopped':
+            tailscale_cli('up', '--timeout=15s')
+            state = tailscale_cli('status', '--json')
+        if state.get('BackendState') != 'Running':
+            raise RuntimeError('Tailscale vyzaduje mistni prihlaseni nebo schvaleni zarizeni.')
+        selected = [p for p in tailscale_cli('switch', '--list', '--json') if p.get('selected')]
+        if len(selected) != 1 or selected[0].get('id') != profile_id or selected[0].get('account') != account:
+            raise RuntimeError('Aktivni profil Tailscale neodpovida prirazeni domu.')
+        for attempt in range(5):
+            if endpoint_reachable(item):
+                return {'action': 'switched_profile' if changed else 'reconnected', 'profile_id': profile_id}
+            if attempt < 4:
+                time.sleep(1)
+        raise RuntimeError('Cilovy Home Assistant neni dostupny ani ve spravnem profilu Tailscale.')
+    except Exception as exc:
+        if changed:
+            try:
+                tailscale_cli('switch', previous)
+            except Exception:
+                raise RuntimeError('Pripojeni selhalo a puvodni profil Tailscale se nepodarilo obnovit. Overte Tailscale mistne.') from None
+        raise exc
+
+
+def execute_tool(name: str, args: dict[str, Any]) -> Any:
+    if name == 'list_instances':
+        return TOOLS[name][2](args)
+    target_args = args
+    if name in ('confirm_service_call', 'confirm_dashboard_save'):
+        pending = PENDING.get(str(args.get('confirmation_code', '')))
+        if not pending:
+            return TOOLS[name][2](args)
+        target_args = {'instance': pending['instance']}
+    item = instance_for(target_args)
+    if not (item.get('tailscale') or {}).get('enabled'):
+        return TOOLS[name][2](args)
+    with network_lock():
+        network = ensure_network(item)
+        value = TOOLS[name][2](args)
+        if isinstance(value, dict):
+            value['network'] = network
+        return value
 
 
 class ConnectionProblem(RuntimeError):
@@ -557,7 +669,7 @@ def handle(request: dict[str, Any]) -> dict[str, Any] | None:
             return response(request_id, error={"code": -32601, "message": f"Neznámý nástroj: {name}"})
         try:
             refresh_config()
-            value = TOOLS[name][2](params.get("arguments", {}))
+            value = execute_tool(name, params.get("arguments", {}))
             return response(request_id, {"content": [{"type": "text", "text": json.dumps(value, ensure_ascii=False, indent=2)}], "isError": False})
         except Exception as exc:
             return response(request_id, {"content": [{"type": "text", "text": f"{type(exc).__name__}: {exc}"}], "isError": True})
@@ -570,7 +682,9 @@ def main() -> None:
     if '--health-check' in sys.argv:
         try:
             refresh_config()
-            checks = [connection_health({'instance': item['name']}) for item in CONFIG['instances']]
+            # Background monitoring must never switch the user's network profile.
+            with network_lock():
+                checks = [connection_health({'instance': item['name']}) for item in CONFIG['instances']]
             print(json.dumps({'checks': checks}, ensure_ascii=False))
             sys.exit(0 if all(x['status'] == 'ok' for x in checks) else 1)
         except Exception:

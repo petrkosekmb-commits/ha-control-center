@@ -10,6 +10,7 @@ try {
             baseUrl = ([string]$item.baseUrl).TrimEnd('/')
             token = $credential.GetNetworkCredential().Password
             verifySsl = if ($null -eq $item.verifySsl) { $true } else { [bool]$item.verifySsl }
+            tailscale = $item.tailscale
         }
     })
     $runtime = [ordered]@{

@@ -1,5 +1,12 @@
 # Změny
 
+## 0.3.0
+
+- Automaticka priprava site podle mistniho prirazeni domu k overenemu profilu Tailscale.
+- Funkcni sdilene spojeni zustava zachovano, pri chybe prepnuti navrat k puvodnimu profilu.
+- Zamek mezi procesy chrani prubeh HA operace; pravidelna kontrola profil nemeni.
+- Automatic per-instance Tailscale selection, bounded reconnect, rollback and synthetic tests.
+
 ## 0.2.0
 
 - Novy zobrazovany nazev HA Control Center. Technicky identifikator a cesta sifrovaneho nastaveni zustavaji kompatibilni.
