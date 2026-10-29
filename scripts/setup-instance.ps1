@@ -27,7 +27,11 @@ if (Test-Path -LiteralPath $configPath) {
     }
 }
 
-$newItem = [pscustomobject]@{ name = $Name; baseUrl = $BaseUrl; encryptedToken = $encryptedToken; verifySsl = $VerifySsl }
+$existing = @($config.instances | Where-Object { ([string]$_.name).ToLowerInvariant() -eq $Name.ToLowerInvariant() })
+$newItem = if ($existing.Count) { $existing[0] } else { [pscustomobject]@{} }
+foreach ($entry in @{ name = $Name; baseUrl = $BaseUrl; encryptedToken = $encryptedToken; verifySsl = $VerifySsl }.GetEnumerator()) {
+    $newItem | Add-Member -MemberType NoteProperty -Name $entry.Key -Value $entry.Value -Force
+}
 $remaining = @($config.instances | Where-Object { ([string]$_.name).ToLowerInvariant() -ne $Name.ToLowerInvariant() })
 $config.instances = @($remaining) + @($newItem)
 if ($LocalExportRoot) { $config | Add-Member -MemberType NoteProperty -Name localExportRoot -Value $LocalExportRoot -Force }

@@ -25,7 +25,7 @@ from typing import Any
 
 
 PROTOCOL_VERSION = "2025-03-26"
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 PENDING: dict[str, dict[str, Any]] = {}
 MODULE_KEYWORDS = {
     "fve": ["fve", "solar", "pv", "photovolta", "inverter", "sunways", "solarmax", "battery", "bater"],
@@ -124,6 +124,7 @@ def network_lock():
     # One lock across MCP processes and the scheduled health check, held through HA I/O.
     import msvcrt
     path = CONFIG_PATH.with_name('tailscale-operation.lock')
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('a+b') as lock:
         lock.seek(0, 2)
         if lock.tell() == 0:
@@ -198,8 +199,6 @@ def execute_tool(name: str, args: dict[str, Any]) -> Any:
             return TOOLS[name][2](args)
         target_args = {'instance': pending['instance']}
     item = instance_for(target_args)
-    if not (item.get('tailscale') or {}).get('enabled'):
-        return TOOLS[name][2](args)
     with network_lock():
         network = ensure_network(item)
         value = TOOLS[name][2](args)
@@ -345,8 +344,10 @@ class SimpleWebSocket:
         self.sock.sendall(head + mask + masked)
 
     def receive(self) -> dict[str, Any]:
+        fragments = None
         while True:
             first, second = self._exact(2)
+            final = bool(first & 0x80)
             opcode = first & 0x0F
             length = second & 0x7F
             if length == 126:
@@ -363,7 +364,17 @@ class SimpleWebSocket:
                 self.send(payload, opcode=10)
                 continue
             if opcode == 1:
-                return json.loads(payload.decode("utf-8"))
+                if fragments is not None:
+                    raise RuntimeError("WebSocket received a new message before continuation ended.")
+                fragments = bytearray(payload)
+            elif opcode == 0:
+                if fragments is None:
+                    raise RuntimeError("WebSocket received an unexpected continuation.")
+                fragments.extend(payload)
+            else:
+                continue
+            if final:
+                return json.loads(fragments.decode("utf-8"))
 
     def close(self) -> None:
         try:

@@ -1,6 +1,6 @@
 {
   "name": "kosek-control-center",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Bezpecne lokalni centrum pro Home Assistant, FVE, vozidla, Traccar a overene exporty.",
   "author": {
     "name": "Petr Kosek"

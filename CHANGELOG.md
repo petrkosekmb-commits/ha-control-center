@@ -1,5 +1,11 @@
 # Změny
 
+## 0.3.1
+
+- Síťový zámek chrání i operace instancí bez automatického Tailscale.
+- Opakované nastavení zachovává Tailscale i doplňující vlastnosti instance.
+- Příjem WebSocket podporuje pokračovací rámce, včetně rozdělených znaků UTF-8.
+
 ## 0.3.0
 
 - Automaticka priprava site podle mistniho prirazeni domu k overenemu profilu Tailscale.
