@@ -55,3 +55,13 @@ Testy používají syntetická data. Ověřují rotaci nastavení, chyby příst
 ## Tailscale 0.3.0
 
 Automaticke pripojeni podle domu / Automatic per-home connection: [TAILSCALE.md](TAILSCALE.md). Prirazeni uctu a tokeny zustavaji pouze mistne. Account mappings and tokens remain local.
+
+
+## Podpora vývoje / Support development
+
+Pokud vám projekt pomáhá, můžete dobrovolně podpořit jeho další vývoj a údržbu
+na [Buy Me a Coffee](https://buymeacoffee.com/kojakcio). Příspěvek není podmínkou používání.
+
+If this project helps you, you can optionally support its continued development
+and maintenance on [Buy Me a Coffee](https://buymeacoffee.com/kojakcio).
+Contributions are not required to use the project.
